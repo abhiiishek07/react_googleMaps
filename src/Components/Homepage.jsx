@@ -1,24 +1,69 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import styled from "styled-components";
 import Grid from "@mui/material/Grid";
 import TextField from "@mui/material/TextField";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
+
 import {
   useJsApiLoader,
   GoogleMap,
   Marker,
   Autocomplete,
+  DirectionsRenderer,
 } from "@react-google-maps/api";
+
 function Homepage() {
+  const [libraries] = useState(["places"]);
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: `${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`,
-    libraries: ["places"],
+    libraries,
   });
   const center = { lat: 26.9124, lng: 75.7873 };
   if (!isLoaded) console.log("loading...");
   const [map, setMap] = useState(/** @type google.maps.Map */ (null));
+
+  const originRef = useRef(""); // to select origin's value
+  const destinationRef = useRef(""); // to select destination's value
+
+  const [directionsResponse, setDirectionsResponse] = useState(null);
+  const [distance, setDistance] = useState("0");
+  const [duration, setDuration] = useState("0");
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [locations, setLocations] = useState(false);
+
+  const findPath = async () => {
+    if (originRef.current.value === "" || destinationRef.current.value === "") {
+      return;
+    }
+    setLocations(true);
+    setOrigin(originRef.current.value);
+    setDestination(destinationRef.current.value);
+    setDirectionsResponse(null);
+    // eslint-disable-next-line no-undef
+    const directionsService = new google.maps.DirectionsService();
+    const results = await directionsService.route({
+      origin: originRef.current.value,
+      destination: destinationRef.current.value,
+      // eslint-disable-next-line no-undef
+      travelMode: google.maps.TravelMode.DRIVING,
+    });
+    setDirectionsResponse(results);
+    setDistance(results.routes[0].legs[0].distance.text);
+    setDuration(results.routes[0].legs[0].duration.text);
+  };
+
+  const clearAll = () => {
+    // clear button to reset everything
+    setDirectionsResponse(null);
+    setDistance("0");
+    setDuration("0");
+    setLocations(false);
+    originRef.current.value = "";
+    destinationRef.current.value = "";
+  };
   return (
     <Container>
       <Grid container>
@@ -38,83 +83,110 @@ function Homepage() {
                 <PlacesWrapper>
                   <Origin>
                     Origin
-                    <TextField
-                      hiddenLabel
-                      id="filled-hidden-label-small"
-                      variant="outlined"
-                      size="large"
-                      style={{
-                        backgroundColor: "white",
-                        width: "272px",
-                        height: "56px",
-                      }}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <LocationOnIcon
-                              fontSize="medium"
-                              style={{ color: "red" }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
+                    {isLoaded && (
+                      <Autocomplete>
+                        <TextField
+                          hiddenLabel
+                          id="filled-hidden-label-small"
+                          variant="outlined"
+                          size="large"
+                          inputRef={originRef}
+                          style={{
+                            backgroundColor: "white",
+                            width: "272px",
+                            height: "56px",
+                          }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <LocationOnIcon
+                                  fontSize="medium"
+                                  style={{ color: "red" }}
+                                />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Autocomplete>
+                    )}
                   </Origin>
 
                   <Destination>
                     Destination
-                    <TextField
-                      hiddenLabel
-                      id="filled-hidden-label-small"
-                      variant="outlined"
-                      size="large"
-                      style={{
-                        backgroundColor: "white",
-                        width: "272px",
-                        height: "56px",
-                      }}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <LocationOnIcon
-                              fontSize="medium"
-                              style={{ color: "red" }}
-                            />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
+                    {isLoaded && (
+                      <Autocomplete>
+                        <TextField
+                          hiddenLabel
+                          id="filled-hidden-label-small"
+                          variant="outlined"
+                          size="large"
+                          inputRef={destinationRef}
+                          style={{
+                            backgroundColor: "white",
+                            width: "272px",
+                            height: "56px",
+                          }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <LocationOnIcon
+                                  fontSize="medium"
+                                  style={{ color: "red" }}
+                                />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Autocomplete>
+                    )}
                   </Destination>
                 </PlacesWrapper>
-
-                <Button
-                  variant="contained"
-                  style={{
-                    borderRadius: "4rem",
-                    height: "3rem",
-                    backgroundColor: "#1B31A8",
-                  }}
-                >
-                  Calculate
-                </Button>
+                <BtnContainer>
+                  <Button
+                    variant="contained"
+                    onClick={findPath}
+                    style={{
+                      borderRadius: "4rem",
+                      height: "3rem",
+                      backgroundColor: "#1B31A8",
+                    }}
+                  >
+                    Calculate
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={clearAll}
+                    style={{
+                      borderRadius: "4rem",
+                      height: "3rem",
+                      margin: "0.5rem",
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </BtnContainer>
               </PlacesCont>
               <DetailsCont>
                 <DistanceWrapper>
                   <h4>Distance</h4>
                   <span className="distance">
-                    <h3>2478 km</h3>
+                    <h3>{distance}</h3>
                   </span>
                 </DistanceWrapper>
                 <EtaWrapper>
-                  <h4>Eta</h4>
+                  <h4>Eta </h4>
                   <span className="time">
-                    <h3>46 mins</h3>
+                    <h3> {duration}</h3>
                   </span>
                 </EtaWrapper>
-                <DetailsWrapper>
-                  Distance between <b>Mumbai</b> and <b>Delhi</b> is{" "}
-                  <b>2478 km</b> and Estimated time of arrival is <b>3hrs</b>
-                </DetailsWrapper>
+                {locations && (
+                  <DetailsWrapper>
+                    Distance between <b> {origin.split(",")[0]} </b> and{" "}
+                    <b>{destination.split(",")[0]}</b> is <b>{distance}</b> and
+                    Estimated time of arrival is <b>{duration}</b>.
+                  </DetailsWrapper>
+                )}
               </DetailsCont>
             </LocationsWrapper>
 
@@ -131,6 +203,9 @@ function Homepage() {
                     onLoad={(map) => setMap(map)}
                   >
                     <Marker position={center} />
+                    {directionsResponse && (
+                      <DirectionsRenderer directions={directionsResponse} />
+                    )}
                   </GoogleMap>
                 )}
               </MapsContainer>
@@ -180,6 +255,10 @@ const PlacesCont = styled.div`
   align-items: center;
   margin-top: 3rem;
 `;
+const BtnContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
 const Origin = styled.div`
   display: flex;
   flex-direction: column;
@@ -196,6 +275,7 @@ const Destination = styled.div`
 const PlacesWrapper = styled.div`
   display: flex;
   flex-direction: column;
+  padding: 1rem;
 `;
 const DetailsCont = styled.div`
   display: flex;
@@ -207,20 +287,22 @@ const DistanceWrapper = styled.div`
   display: flex;
   justify-content: space-around;
   background-color: #ffffff;
-  font-weight: bold;
 
   .distance {
     color: #0079ff;
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 `;
 const EtaWrapper = styled.div`
   display: flex;
   justify-content: space-around;
   background-color: #ffffff;
-  font-weight: 400;
+  font-style: normal;
+
   .time {
     color: red;
+    font-size: 1rem;
+    margin-left: 2rem;
   }
 `;
 const DetailsWrapper = styled.div`
@@ -239,7 +321,7 @@ const MapsWrapper = styled.div`
 `;
 const MapsContainer = styled.div`
   width: 90%;
-  height: 70vh;
+  height: 80%;
 `;
 
 export default Homepage;
